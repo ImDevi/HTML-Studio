@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HTML Studio</title>
+  <!-- Google Fonts: Montserrat -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <!-- CodeMirror CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/yonce.min.css">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      font-family: 'Montserrat', sans-serif;
+      background: #121212;
+      color: #2a2a2a;
+      overflow: hidden;
+    }
+
+    #editor {
+      width: 40%;
+      padding: 10px;
+      box-sizing: border-box;
+      border-right: 2px solid #333;
+      display: flex;
+      flex-direction: column;
+      max-height: 100vh;
+    }
+    #editor .buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    #editor button {
+      flex: 1;
+      padding: 14px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: #007ab4;
+      color: #fff;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    #editor button:hover {
+      background: #005b86;
+    }
+    .CodeMirror {
+      flex: 1;
+      height: 100%;
+      font-size: 14px;
+      border: 1px solid #333;
+    }
+    .CodeMirror-scrollbar-filler,
+    .CodeMirror-gutter-filler {
+      background-color: #1c1c1c;
+    }
+
+    #preview-container {
+      width: 60%;
+      padding: 10px;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #1e1e1e;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .title {
+      position: fixed;
+      transform: translateX(-50%);
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+      text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Preview wrapper */
+    .preview-wrapper {
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 1920 / 947;
+      border: 1px solid #444;
+      background: #2a2a2a;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform-origin: center;
+    }
+
+    .chrome-bar {
+      display: flex;
+      align-items: flex-end;
+      height: 34px;
+      border-bottom: 1px solid #444;
+      background: #2a2a2a;
+      flex-shrink: 0;
+    }
+
+    .tab-shape {
+      padding: 6px 16px;
+      font-weight: bold;
+      font-size: 13px;
+      color: #eee;
+      background: linear-gradient(#3a3a3a, #2a2a2a);
+      border: 1px solid #555;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      white-space: nowrap;
+      max-width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      position: relative;
+    }
+    .tab-shape::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 0;
+      width: 10px;
+      height: 100%;
+      background: linear-gradient(#3a3a3a, #2a2a2a);
+      border-top: 1px solid #555;
+      border-right: 1px solid #555;
+      border-bottom: none;
+      transform: skewX(-20deg);
+      border-top-right-radius: 6px;
+    }
+
+    /* Iframe */
+    #preview {
+      flex: 1;
+      border: none;
+      display: block;
+      background: #2a2a2a;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Bounce animation */
+    @keyframes bounce {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.05); }
+      50%  { transform: scale(0.95); }
+      70%  { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    .bounce {
+      animation: bounce 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+  <div id="editor">
+    <div class="buttons">
+      <button onclick="runCode()">Run ▶</button>
+      <button onclick="clearCode()">Clear ✖</button>
+    </div>
+    <textarea id="code"></textarea>
+  </div>
+
+  <div id="preview-container">
+    <div class="title" id="title">HTML Studio</div>
+
+    <div class="preview-wrapper" id="previewWrapper">
+      <div class="chrome-bar">
+        <div class="tab-shape" id="tabTitle">Untitled</div>
+      </div>
+      <iframe id="preview"></iframe>
+    </div>
+  </div>
+
+  <!-- CodeMirror JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+
+  <script>
+    const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+      mode: "htmlmixed",
+      theme: "yonce",
+      lineNumbers: true,
+      tabSize: 2,
+      indentUnit: 2,
+      smartIndent: true
+    });
+
+    function extractTitle(html) {
+      const match = html.match(/<title>(.*?)<\/title>/i);
+      return match ? (match[1].trim() || 'Untitled') : 'Untitled';
+    }
+
+    function triggerBounce() {
+      const wrapper = document.getElementById('previewWrapper');
+      wrapper.classList.remove('bounce');
+      void wrapper.offsetWidth;
+      wrapper.classList.add('bounce');
+    }
+
+    function runCode() {
+      const code = editor.getValue();
+      const iframe = document.getElementById('preview');
+      iframe.srcdoc = code;
+      document.getElementById('tabTitle').textContent = extractTitle(code);
+      triggerBounce();
+      positionTitle();
+    }
+
+    function recreateIframe() {
+      const old = document.getElementById('preview');
+      const fresh = document.createElement('iframe');
+      fresh.id = 'preview';
+      fresh.style.flex = '1';
+      fresh.style.border = 'none';
+      fresh.style.display = 'block';
+      fresh.style.background = '#2a2a2a';
+      fresh.style.width = '100%';
+      fresh.style.height = '100%';
+      old.replaceWith(fresh);
+    }
+
+    function clearCode() {
+      editor.setValue('');
+      document.getElementById('tabTitle').textContent = 'Untitled';
+      recreateIframe();
+      editor.focus();
+      triggerBounce();
+      positionTitle();
+    }
+
+    function positionTitle() {
+      const preview = document.getElementById('previewWrapper');
+      const container = document.getElementById('preview-container');
+      const title = document.getElementById('title');
+
+      const previewRect = preview.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+
+      const midY = previewRect.top / 2;
+
+      const midX = containerRect.left + (containerRect.width / 2);
+
+      title.style.top = `${midY}px`;
+      title.style.left = `${midX}px`;
+    }
+
+    window.addEventListener('resize', positionTitle);
+    window.addEventListener('load', () => {
+      clearCode();
+      positionTitle();
+    });
+    window.addEventListener('pageshow', () => {
+      clearCode();
+      positionTitle();
+    });
+  </script>
+</body>
+</html>
